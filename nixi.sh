@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-#
-# nixi - imperative package management for NixOS
-# Edits environment.systemPackages in /etc/nixos/configuration.nix
-# and runs nixos-rebuild switch, like `sudo nixi install firefox`.
-#
+# nixi - imperative-ish package management for NixOS, edits configuration.nix + rebuilds
+
 set -euo pipefail
 
 CONFIG_FILE="/etc/nixos/configuration.nix"
@@ -12,8 +9,6 @@ PKG_BLOCK_RE='^[[:space:]]*environment\.systemPackages[[:space:]]*=[[:space:]]*w
 
 usage() {
   cat <<'EOF'
-nixi - manage NixOS packages imperatively (edits configuration.nix + rebuilds)
-
 usage:
   sudo nixi install <package>   add a package and rebuild
   sudo nixi remove <package>    remove a package and rebuild
@@ -24,42 +19,24 @@ EOF
 }
 
 require_root() {
-  if [[ $EUID -ne 0 ]]; then
-    echo "this needs to edit $CONFIG_FILE and run nixos-rebuild — run with sudo." >&2
-    exit 1
-  fi
+  [[ $EUID -eq 0 ]] || { echo "needs root to edit $CONFIG_FILE and run nixos-rebuild, use sudo" >&2; exit 1; }
 }
 
 require_config() {
-  if [[ ! -f "$CONFIG_FILE" ]]; then
-    echo "cant find $CONFIG_FILE" >&2
-    exit 1
-  fi
+  [[ -f "$CONFIG_FILE" ]] || { echo "cant find $CONFIG_FILE" >&2; exit 1; }
   if ! grep -qE "$PKG_BLOCK_RE" "$CONFIG_FILE"; then
-    cat >&2 <<EOF
-couldnt find an 'environment.systemPackages = with pkgs; [ ... ];' block
-in $CONFIG_FILE. nixi only knows how to edit that exact form.
-
-Add an empty one manually first, e.g.:
-
-  environment.systemPackages = with pkgs; [
-  ];
-
-then try again.
-EOF
+    echo "no 'environment.systemPackages = with pkgs; [ ... ];' block in $CONFIG_FILE, nixi only knows that exact form" >&2
+    echo "add an empty one first and try again" >&2
     exit 1
   fi
 }
 
+# finds the "[" line and the closing "];" line
 block_bounds() {
-  # prints "start end" line numbers: the "[" line and the "];" line
   local start end
   start=$(grep -nE "$PKG_BLOCK_RE" "$CONFIG_FILE" | head -n1 | cut -d: -f1)
   end=$(awk -v s="$start" 'NR>s && /^[[:space:]]*\];/{print NR; exit}' "$CONFIG_FILE")
-  if [[ -z "$end" ]]; then
-    echo "couldnt find the closing '];' for the systemPackages block." >&2
-    exit 1
-  fi
+  [[ -n "$end" ]] || { echo "couldnt find the closing '];' for the block" >&2; exit 1; }
   echo "$start $end"
 }
 
@@ -71,23 +48,22 @@ pkg_installed() {
 
 backup_config() {
   mkdir -p "$BACKUP_DIR"
-  local stamp
-  stamp="$(date +%Y%m%d-%H%M%S)"
+  local stamp="$(date +%Y%m%d-%H%M%S)"
   cp "$CONFIG_FILE" "$BACKUP_DIR/configuration.nix.$stamp"
   echo "$BACKUP_DIR/configuration.nix.$stamp"
 }
 
 rebuild_or_rollback() {
   local backup="$1"
-  echo "rebuilding NixOS (nixos-rebuild switch)..."
+  echo "rebuilding (nixos-rebuild switch)..."
   if nixos-rebuild switch; then
-    echo "Done."
-  else
-    echo "rebuild failed — restoring $CONFIG_FILE from backup." >&2
-    cp "$backup" "$CONFIG_FILE"
-    echo "your running system is unaffected (old generation is still active)." >&2
-    exit 1
+    echo done
+    return
   fi
+  echo "rebuild failed, restoring config from backup" >&2
+  cp "$backup" "$CONFIG_FILE"
+  echo "system is unaffected, old generation still active" >&2
+  exit 1
 }
 
 cmd_install() {
@@ -97,7 +73,7 @@ cmd_install() {
   require_config
 
   if pkg_installed "$pkg"; then
-    echo "'$pkg' is already in systemPackages."
+    echo "'$pkg' is already in systemPackages"
     exit 0
   fi
 
@@ -105,7 +81,7 @@ cmd_install() {
   backup=$(backup_config)
   read -r start end <<<"$(block_bounds)"
   sed -i "${start}a\\    ${pkg}" "$CONFIG_FILE"
-  echo "Added '$pkg' to $CONFIG_FILE."
+  echo "added '$pkg' to $CONFIG_FILE"
   rebuild_or_rollback "$backup"
 }
 
@@ -116,14 +92,13 @@ cmd_remove() {
   require_config
 
   if ! pkg_installed "$pkg"; then
-    echo "'$pkg' isnt in systemPackages — so nothing to do."
+    echo "'$pkg' isnt in systemPackages, nothing to do"
     exit 0
   fi
 
-  local backup
-  backup=$(backup_config)
+  local backup=$(backup_config)
   sed -i -E '/^[[:space:]]*'"${pkg}"'[[:space:]]*(#.*)?$/d' "$CONFIG_FILE"
-  echo "Removed '$pkg' from $CONFIG_FILE."
+  echo "removed '$pkg' from $CONFIG_FILE"
   rebuild_or_rollback "$backup"
 }
 
@@ -137,8 +112,8 @@ cmd_list() {
 cmd_search() {
   local term="${1:-}"
   [[ -n "$term" ]] || usage
-  echo "Searching nixpkgs for '$term' (this can take a moment the frist time)..."
-  nix-env -qaP --description 2>/dev/null | grep -i -- "$term" || echo "No matches."
+  echo "searching nixpkgs for '$term', first run is slow..."
+  nix-env -qaP --description 2>/dev/null | grep -i -- "$term" || echo "no matches"
 }
 
 case "${1:-}" in
