@@ -1,4 +1,7 @@
 # Nixi
+
+(warning that it edits configuration.nix as root via sudo. But it has a fallback if anything goes worng)
+
 Makes NixOS feel imperative.
 
 
