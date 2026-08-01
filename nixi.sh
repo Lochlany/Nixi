@@ -37,7 +37,7 @@ EOF
   }
 }
 
-# pkgs.foo and foo should count as the same package
+# pkgs.foo and foo should count as the same package?? pretty sure
 bare() { echo "${1#pkgs.}"; }
 
 block_bounds() {
