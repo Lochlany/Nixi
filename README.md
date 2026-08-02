@@ -5,7 +5,7 @@ Imperative package management for NixOS, install/remove packages like apt/pacman
 1. Clone the repo:
 ```bash
    git clone https://github.com/Lochlany/Nixi.git
-   cd Nixi
+   cd nixi
 ```
 2. Install the script:
 ```bash
