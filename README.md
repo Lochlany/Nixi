@@ -29,10 +29,14 @@ environment.systemPackages = with pkgs; [
 ## Usage
 ```bash
 sudo nixi install firefox     # add a package and rebuild
-sudo nixi remove firefox      # remove a package and rebuild
+sudo nixi remove firefox      # remove a package (checks both systemPackages and option-based installs)
 sudo nixi upgrade             # update flake inputs (or channels) and rebuild
 nixi list                     # show installed packages
-nixi search browser           # search nixpkgs
+nixi search browser           # search nixpkgs (uses faster 'nix search' for flakes)
+sudo nixi fmt                 # formats, sorts, and dedupes the systemPackages block
+sudo nixi rollback            # roll back one generation
+sudo nixi rollback list       # see available generations
+sudo nixi rollback N          # jump to a specific generation N          # search nixpkgs
 ```
 `nixi upgrade` runs `nix flake update` and rebuilds if your on a flake based config (`/etc/nixos/flake.nix` exists), otherwise falls back to `nix-channel --update`.
 if you have [fzf](https://github.com/junegunn/fzf) installed, `nixi search` lets you pick a result interactivly and installs it right away instead of just printing matches.
@@ -40,3 +44,15 @@ also, `pkgs.foo` and `foo` are treated as the same package, so it doesnt matter 
 ## Updates
 Nixi V2:
 added `nixi upgrade`, flake support, and fzf search. rebuilds now use `--flake` automatically if youve got a `flake.nix`, otherwise it just does the old channel update. nothing else changed behavior wise, still backs up before every rebuild and rolls back if somthing breaks.
+
+Nixi V3:
+
+option based removal: nixi remove checks options too now. if something was added via an option like virtualisation.docker.enable = true;, it finds and toggles/removes it instead of complaining it isnt there.
+
+nixi fmt: rewrites the whole systemPackages block one per line, sorts it, and dedupes it (drops comments inside the block since they cant be reordered safely).
+
+nixi rollback: handles system generations completely separate from the config file (rollback for last gen, rollback list to see them, rollback N to jump to a specific one).
+
+faster flake search: skips the slow nix-env -qaP scan and uses native nix search when flakes are enabled.
+
+better error handling: gives a clear error message instead of failing cryptically if it hits single-line blocks or broken syntax.
