@@ -28,15 +28,15 @@ environment.systemPackages = with pkgs; [
 ```
 ## Usage
 ```bash
-sudo nixi install firefox     # add a package and rebuild
-sudo nixi remove firefox      # remove a package (checks both systemPackages and option-based installs)
-sudo nixi upgrade             # update flake inputs (or channels) and rebuild
+nixi install firefox     # add a package and rebuild
+nixi remove firefox      # remove a package (checks both systemPackages and option-based installs)
+nixi upgrade             # update flake inputs (or channels) and rebuild
 nixi list                     # show installed packages
 nixi search browser           # search nixpkgs (uses faster 'nix search' for flakes)
-sudo nixi fmt                 # formats, sorts, and dedupes the systemPackages block
-sudo nixi rollback            # roll back one generation
-sudo nixi rollback list       # see available generations
-sudo nixi rollback N          # jump to a specific generation N          # search nixpkgs
+nixi fmt                 # formats, sorts, and dedupes the systemPackages block
+nixi rollback            # roll back one generation
+nixi rollback list       # see available generations
+nixi rollback N          # jump to a specific generation N          # search nixpkgs
 ```
 `nixi upgrade` runs `nix flake update` and rebuilds if your on a flake based config (`/etc/nixos/flake.nix` exists), otherwise falls back to `nix-channel --update`.
 if you have [fzf](https://github.com/junegunn/fzf) installed, `nixi search` lets you pick a result interactivly and installs it right away instead of just printing matches.
